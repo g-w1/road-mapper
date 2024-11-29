@@ -1,18 +1,21 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Road Mapper</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <style>
-        body { 
+        body {
             margin: 0;
             padding: 20px;
         }
-        #map { 
+
+        #map {
             height: 85vh;
-            width: 100%; 
+            width: 100%;
             margin-top: 20px;
         }
+
         .controls-container {
             display: flex;
             gap: 10px;
@@ -20,12 +23,14 @@
             flex-wrap: wrap;
             margin-bottom: 10px;
         }
-        input { 
-            padding: 8px; 
+
+        input {
+            padding: 8px;
             width: 200px;
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+
         button {
             padding: 8px 16px;
             background-color: #4CAF50;
@@ -35,27 +40,65 @@
             cursor: pointer;
             white-space: nowrap;
         }
-        button:hover { 
-            background-color: #45a049; 
+
+        button:hover {
+            background-color: #45a049;
         }
-        #resetBtn, #toggleMarkerBtn {
+
+        #resetBtn,
+        #toggleMarkerBtn,
+        #resetPointsBtn {
             background-color: #f44336;
         }
-        #resetBtn:hover, #toggleMarkerBtn:hover {
+
+        #resetBtn:hover,
+        #toggleMarkerBtn:hover,
+        #resetPointsBtn:hover {
             background-color: #d32f2f;
         }
+
         #toggleMarkerBtn.active {
             background-color: #2196F3;
         }
+
         #toggleMarkerBtn.active:hover {
             background-color: #1976D2;
         }
-        #highlightedRoad { 
-            margin-top: 10px; 
+
+        #highlightedRoad {
+            margin-top: 10px;
             color: #666;
+        }
+
+        .radius-control {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-left: 10px;
+        }
+
+        .radius-control.visible {
+            display: flex;
+        }
+
+        #radiusSlider {
+            width: 150px;
+        }
+
+        #radiusValue {
+            min-width: 70px;
+        }
+
+        #screenshotBtn {
+            background-color: #9c27b0;
+        }
+
+        #screenshotBtn:hover {
+            background-color: #7b1fa2;
         }
     </style>
 </head>
+
 <body>
     <div class="controls-container">
         <input type="text" id="cityInput" placeholder="Enter city name">
@@ -64,82 +107,171 @@
         <button onclick="searchRoad()">Find Road</button>
         <button id="resetBtn" onclick="resetMap()">Clear Road</button>
         <button id="toggleMarkerBtn" onclick="toggleMarkerMode()">Add Points (Off)</button>
+        <button id="resetPointsBtn" onclick="resetPoints()" style="display: none;">Clear Points</button>
+        <button id="screenshotBtn" onclick="takeScreenshot()">Screenshot</button>
+        <div class="radius-control">
+            <input type="range" id="radiusSlider" min="0" max="100" value="0" oninput="updateRadius(this.value)">
+            <span id="radiusValue">20m</span>
+        </div>
     </div>
     <div id="map"></div>
     <div id="highlightedRoad"></div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-simple-map-screenshoter"></script>
     <script>
-        let map, currentCity, highlightedLayer, cityBounds;
+        let map, currentCity, highlightedLayer, cityBounds, screenshoter;
         let isMarkerMode = false;
         let isDragging = false;
         let markers = [];
+        let currentRadius = 20;
 
+        // Add at the top of the script
+        const MIN_RADIUS = 20;
+        const MAX_RADIUS = 5000;
+        const LOG_MIN = Math.log(MIN_RADIUS);
+        const LOG_MAX = Math.log(MAX_RADIUS);
+
+        // Replace the updateRadius function
+        function calculateRadius(sliderValue) {
+            // Convert slider value (0-100) to logarithmic scale between MIN_RADIUS and MAX_RADIUS
+            const logValue = LOG_MIN + (sliderValue / 100) * (LOG_MAX - LOG_MIN);
+            return Math.round(Math.exp(logValue));
+        }
+
+        function updateRadius(sliderValue) {
+            currentRadius = calculateRadius(sliderValue);
+            // Format display with km for values ≥ 1000
+            const display = currentRadius >= 1000 ?
+                (currentRadius / 1000).toFixed(1) + 'km' :
+                currentRadius + 'm';
+            document.getElementById('radiusValue').textContent = display;
+        }
         function initMap() {
             map = L.map('map', {
                 zoomDelta: 0.25,
                 zoomSnap: 0.25,
                 wheelDebounceTime: 40
             }).setView([0, 0], 13);
-            
+
+            screenshoter = L.simpleMapScreenshoter({
+                position: 'topleft',
+                screenName: 'map-screenshot',
+                hideElementsWithSelectors: ['.leaflet-control-container'],
+                mimeType: 'image/png'
+            }).addTo(map);
+
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
                 maxZoom: 19,
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            map.on('moveend', function() {
+            map.on('moveend', function () {
                 if (currentCity) {
                     saveViewState(currentCity.display_name);
                 }
             });
 
             map.on('dragstart', () => { isDragging = true; });
-            map.on('dragend', () => { 
-                setTimeout(() => { isDragging = false; }, 50); 
+            map.on('dragend', () => {
+                setTimeout(() => { isDragging = false; }, 50);
             });
-            
+
             map.on('click', (e) => {
                 if (isMarkerMode && !isDragging) {
                     handleMapClick(e);
+                }
+            });
+
+            // Add enter key listeners for inputs
+            document.getElementById('cityInput').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    searchCity();
+                }
+            });
+
+            document.getElementById('roadInput').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    searchRoad();
                 }
             });
         }
 
         function handleMapClick(e) {
             const clickedLatLng = e.latlng;
-            
+
+            // Find if clicked on existing marker, using the marker's own radius for detection
             let clickedMarker = markers.find(marker => {
                 const markerLatLng = marker.getLatLng();
                 const distance = clickedLatLng.distanceTo(markerLatLng);
-                return distance <= 20; // 20 meters - exactly matches the circle radius
+                return distance <= marker.getRadius();
             });
 
             if (clickedMarker) {
                 map.removeLayer(clickedMarker);
                 markers = markers.filter(m => m !== clickedMarker);
+                updateResetPointsButton();
             } else {
                 const circle = L.circle(clickedLatLng, {
                     color: '#2196F3',
                     fillColor: '#2196F3',
                     fillOpacity: 0.3,
-                    radius: 20 // 20 meters
+                    radius: currentRadius
                 }).addTo(map);
-                
+
                 markers.push(circle);
+                updateResetPointsButton();
             }
+        }
+
+        function updateResetPointsButton() {
+            const resetPointsBtn = document.getElementById('resetPointsBtn');
+            resetPointsBtn.style.display = markers.length > 0 ? 'block' : 'none';
+        }
+
+        function resetPoints() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            updateResetPointsButton();
         }
 
         function toggleMarkerMode() {
             isMarkerMode = !isMarkerMode;
             const btn = document.getElementById('toggleMarkerBtn');
+            const radiusControl = document.querySelector('.radius-control');
+
             if (isMarkerMode) {
                 btn.textContent = 'Add Points (On)';
                 btn.classList.add('active');
                 map.getContainer().style.cursor = 'crosshair';
+                radiusControl.classList.add('visible');
             } else {
                 btn.textContent = 'Add Points (Off)';
                 btn.classList.remove('active');
                 map.getContainer().style.cursor = '';
+                radiusControl.classList.remove('visible');
+            }
+        }
+
+        async function takeScreenshot() {
+            try {
+                const blob = await screenshoter.takeScreen('blob');
+                if (navigator.clipboard && navigator.clipboard.write) {
+                    const clipboardItem = new ClipboardItem({
+                        'image/png': blob
+                    });
+                    await navigator.clipboard.write([clipboardItem]);
+                    alert('Screenshot copied to clipboard!');
+                } else {
+                    // Fall back to download
+                    const link = document.createElement('a');
+                    link.download = 'map-screenshot.png';
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }
+            } catch (error) {
+                console.error('Screenshot error:', error);
+                alert('Error taking screenshot');
             }
         }
 
@@ -183,7 +315,7 @@
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&addressdetails=1&polygon_geojson=1`);
                 const data = await response.json();
-                
+
                 if (data.length > 0) {
                     currentCity = data[0];
                     if (currentCity.boundingbox) {
@@ -191,9 +323,9 @@
                         const north = Math.max(parseFloat(currentCity.boundingbox[0]), parseFloat(currentCity.boundingbox[1]));
                         const west = Math.min(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
                         const east = Math.max(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
-                        
+
                         cityBounds = [[south, west], [north, east]];
-                        
+
                         const savedState = loadViewState(currentCity.display_name);
                         if (savedState) {
                             map.setView([savedState.center.lat, savedState.center.lng], savedState.zoom);
@@ -226,7 +358,7 @@
             const west = Math.min(expandedBounds[0][1], expandedBounds[1][1]);
             const east = Math.max(expandedBounds[0][1], expandedBounds[1][1]);
             const bbox = `${south},${west},${north},${east}`;
-            
+
             try {
                 let query;
                 if (roadInput.match(/^i[-\s]?\d+$/i)) {
@@ -282,10 +414,10 @@
                         if (element.type === 'way' && element.geometry) {
                             if (roadInput.match(/^i[-\s]?\d+$/i)) {
                                 const num = roadInput.match(/\d+/)[0];
-                                if (element.tags && 
-                                    (element.tags.ref === `I ${num}` || 
-                                     element.tags.ref === `I-${num}` || 
-                                     element.tags.ref === num)) {
+                                if (element.tags &&
+                                    (element.tags.ref === `I ${num}` ||
+                                        element.tags.ref === `I-${num}` ||
+                                        element.tags.ref === num)) {
                                     const coordinates = element.geometry.map(point => [point.lat, point.lon]);
                                     roadSegments.push(coordinates);
                                 }
@@ -319,4 +451,5 @@
         initMap();
     </script>
 </body>
+
 </html>

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Road Mapper</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        body { 
+            margin: 0;
+            padding: 20px;
+        }
+        #map { 
+            height: 85vh;
+            width: 100%; 
+            margin-top: 20px;
+        }
+        .controls-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        input { 
+            padding: 8px; 
+            width: 200px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        button:hover { 
+            background-color: #45a049; 
+        }
+        #resetBtn, #toggleMarkerBtn {
+            background-color: #f44336;
+        }
+        #resetBtn:hover, #toggleMarkerBtn:hover {
+            background-color: #d32f2f;
+        }
+        #toggleMarkerBtn.active {
+            background-color: #2196F3;
+        }
+        #toggleMarkerBtn.active:hover {
+            background-color: #1976D2;
+        }
+        #highlightedRoad { 
+            margin-top: 10px; 
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls-container">
+        <input type="text" id="cityInput" placeholder="Enter city name">
+        <button onclick="searchCity()">Search City</button>
+        <input type="text" id="roadInput" placeholder="Enter road name">
+        <button onclick="searchRoad()">Find Road</button>
+        <button id="resetBtn" onclick="resetMap()">Clear Road</button>
+        <button id="toggleMarkerBtn" onclick="toggleMarkerMode()">Add Points (Off)</button>
+    </div>
+    <div id="map"></div>
+    <div id="highlightedRoad"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>
+        let map, currentCity, highlightedLayer, cityBounds;
+        let isMarkerMode = false;
+        let isDragging = false;
+        let markers = [];
+
+        function initMap() {
+            map = L.map('map', {
+                zoomDelta: 0.25,
+                zoomSnap: 0.25,
+                wheelDebounceTime: 40
+            }).setView([0, 0], 13);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            map.on('moveend', function() {
+                if (currentCity) {
+                    saveViewState(currentCity.display_name);
+                }
+            });
+
+            map.on('dragstart', () => { isDragging = true; });
+            map.on('dragend', () => { 
+                setTimeout(() => { isDragging = false; }, 50); 
+            });
+            
+            map.on('click', (e) => {
+                if (isMarkerMode && !isDragging) {
+                    handleMapClick(e);
+                }
+            });
+        }
+
+        function handleMapClick(e) {
+            const clickedLatLng = e.latlng;
+            
+            let clickedMarker = markers.find(marker => {
+                const markerLatLng = marker.getLatLng();
+                const distance = clickedLatLng.distanceTo(markerLatLng);
+                return distance <= 20; // 20 meters - exactly matches the circle radius
+            });
+
+            if (clickedMarker) {
+                map.removeLayer(clickedMarker);
+                markers = markers.filter(m => m !== clickedMarker);
+            } else {
+                const circle = L.circle(clickedLatLng, {
+                    color: '#2196F3',
+                    fillColor: '#2196F3',
+                    fillOpacity: 0.3,
+                    radius: 20 // 20 meters
+                }).addTo(map);
+                
+                markers.push(circle);
+            }
+        }
+
+        function toggleMarkerMode() {
+            isMarkerMode = !isMarkerMode;
+            const btn = document.getElementById('toggleMarkerBtn');
+            if (isMarkerMode) {
+                btn.textContent = 'Add Points (On)';
+                btn.classList.add('active');
+                map.getContainer().style.cursor = 'crosshair';
+            } else {
+                btn.textContent = 'Add Points (Off)';
+                btn.classList.remove('active');
+                map.getContainer().style.cursor = '';
+            }
+        }
+
+        function resetMap() {
+            if (highlightedLayer) {
+                map.removeLayer(highlightedLayer);
+                highlightedLayer = null;
+            }
+            document.getElementById('highlightedRoad').textContent = '';
+            document.getElementById('roadInput').value = '';
+        }
+
+        function saveViewState(cityName) {
+            const viewState = {
+                center: map.getCenter(),
+                zoom: map.getZoom(),
+                bounds: map.getBounds()
+            };
+            localStorage.setItem(`mapView_${cityName}`, JSON.stringify(viewState));
+        }
+
+        function loadViewState(cityName) {
+            const savedState = localStorage.getItem(`mapView_${cityName}`);
+            if (savedState) {
+                return JSON.parse(savedState);
+            }
+            return null;
+        }
+
+        function expandBoundingBox(bbox, factor = 0.5) {
+            const latDiff = (bbox[1][0] - bbox[0][0]) * factor;
+            const lonDiff = (bbox[1][1] - bbox[0][1]) * factor;
+            return [
+                [bbox[0][0] - latDiff, bbox[0][1] - lonDiff],
+                [bbox[1][0] + latDiff, bbox[1][1] + lonDiff]
+            ];
+        }
+
+        async function searchCity() {
+            const cityName = document.getElementById('cityInput').value;
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&addressdetails=1&polygon_geojson=1`);
+                const data = await response.json();
+                
+                if (data.length > 0) {
+                    currentCity = data[0];
+                    if (currentCity.boundingbox) {
+                        const south = Math.min(parseFloat(currentCity.boundingbox[0]), parseFloat(currentCity.boundingbox[1]));
+                        const north = Math.max(parseFloat(currentCity.boundingbox[0]), parseFloat(currentCity.boundingbox[1]));
+                        const west = Math.min(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
+                        const east = Math.max(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
+                        
+                        cityBounds = [[south, west], [north, east]];
+                        
+                        const savedState = loadViewState(currentCity.display_name);
+                        if (savedState) {
+                            map.setView([savedState.center.lat, savedState.center.lng], savedState.zoom);
+                        } else {
+                            map.fitBounds(cityBounds);
+                        }
+                    }
+                    if (highlightedLayer) {
+                        map.removeLayer(highlightedLayer);
+                    }
+                    document.getElementById('highlightedRoad').textContent = '';
+                } else {
+                    alert('City not found');
+                }
+            } catch (error) {
+                alert('Error searching for city');
+            }
+        }
+
+        async function searchRoad() {
+            if (!currentCity) {
+                alert('Please search for a city first');
+                return;
+            }
+
+            const roadInput = document.getElementById('roadInput').value;
+            const expandedBounds = expandBoundingBox(cityBounds);
+            const south = Math.min(expandedBounds[0][0], expandedBounds[1][0]);
+            const north = Math.max(expandedBounds[0][0], expandedBounds[1][0]);
+            const west = Math.min(expandedBounds[0][1], expandedBounds[1][1]);
+            const east = Math.max(expandedBounds[0][1], expandedBounds[1][1]);
+            const bbox = `${south},${west},${north},${east}`;
+            
+            try {
+                let query;
+                if (roadInput.match(/^i[-\s]?\d+$/i)) {
+                    const num = roadInput.match(/\d+/)[0];
+                    query = `
+                        [out:json][timeout:25];
+                        (
+                            way["highway"="motorway"](${bbox});
+                            way["highway"="motorway_link"](${bbox});
+                        );
+                        (._;>;);
+                        out body geom;
+                    `;
+                } else if (roadInput.match(/^us[-\s]?\d+$/i)) {
+                    const num = roadInput.match(/\d+/)[0];
+                    query = `
+                        [out:json][timeout:25];
+                        (
+                            way["highway"]["ref"~"^US[ -]?${num}$",i](${bbox});
+                            way["highway"]["network"="US:US"]["ref"="${num}"](${bbox});
+                        );
+                        (._;>;);
+                        out body geom;
+                    `;
+                } else {
+                    query = `
+                        [out:json][timeout:25];
+                        (
+                            way["highway"]["name"~"${roadInput}",i](${bbox});
+                        );
+                        (._;>;);
+                        out body geom;
+                    `;
+                }
+
+                const response = await fetch('https://overpass-api.de/api/interpreter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'data=' + encodeURIComponent(query)
+                });
+
+                const data = await response.json();
+
+                if (data.elements.length > 0) {
+                    if (highlightedLayer) {
+                        map.removeLayer(highlightedLayer);
+                    }
+
+                    const roadSegments = [];
+                    data.elements.forEach(element => {
+                        if (element.type === 'way' && element.geometry) {
+                            if (roadInput.match(/^i[-\s]?\d+$/i)) {
+                                const num = roadInput.match(/\d+/)[0];
+                                if (element.tags && 
+                                    (element.tags.ref === `I ${num}` || 
+                                     element.tags.ref === `I-${num}` || 
+                                     element.tags.ref === num)) {
+                                    const coordinates = element.geometry.map(point => [point.lat, point.lon]);
+                                    roadSegments.push(coordinates);
+                                }
+                            } else {
+                                const coordinates = element.geometry.map(point => [point.lat, point.lon]);
+                                roadSegments.push(coordinates);
+                            }
+                        }
+                    });
+
+                    if (roadSegments.length > 0) {
+                        highlightedLayer = L.polyline(roadSegments, {
+                            color: '#FF0000',
+                            weight: 6,
+                            opacity: 0.8
+                        }).addTo(map);
+
+                        document.getElementById('highlightedRoad').textContent = `Found: ${roadInput}`;
+                    } else {
+                        document.getElementById('highlightedRoad').textContent = `Road not found: ${roadInput}`;
+                    }
+                } else {
+                    document.getElementById('highlightedRoad').textContent = `Road not found: ${roadInput}`;
+                }
+            } catch (error) {
+                alert('Error searching for road');
+                console.error(error);
+            }
+        }
+
+        initMap();
+    </script>
+</body>
+</html>

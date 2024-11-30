@@ -143,6 +143,7 @@
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-simple-map-screenshoter"></script>
+    <script src="https://unpkg.com/leaflet.tilelayer.colorfilter"></script>
     <script>
         let map, currentCity, cityBounds, screenshoter;
         let highlightedLayers = [];
@@ -202,9 +203,16 @@
                 mimeType: 'image/png'
             }).addTo(map);
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+            const colorFilter = [
+                'saturation: 400%',
+                'contrast: 105%'
+            ];
+
+            // Use the colorFilter tileLayer instead of regular tileLayer
+            L.tileLayer.colorFilter('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
                 maxZoom: 19,
-                attribution: '© OpenStreetMap contributors'
+                attribution: '© OpenStreetMap contributors',
+                filter: colorFilter
             }).addTo(map);
 
             map.on('moveend', function () {

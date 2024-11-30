@@ -108,7 +108,7 @@
         <button id="resetBtn" onclick="resetMap()">Clear Road</button>
         <button id="toggleMarkerBtn" onclick="toggleMarkerMode()">Add Points (Off)</button>
         <button id="resetPointsBtn" onclick="resetPoints()" style="display: none;">Clear Points</button>
-        <button id="screenshotBtn" onclick="takeScreenshot()">Screenshot</button>
+        <button id="screenshotBtn" onclick="takeScreenshot()">Screenshot<span class="status-emoji"></span></button>
         <div class="radius-control">
             <input type="range" id="radiusSlider" min="0" max="100" value="0" oninput="updateRadius(this.value)">
             <span id="radiusValue">20m</span>
@@ -252,17 +252,25 @@
             }
         }
 
+
         async function takeScreenshot() {
             try {
                 const blob = await screenshoter.takeScreen('blob');
+                const statusEmoji = document.querySelector('.status-emoji');
+
                 if (navigator.clipboard && navigator.clipboard.write) {
                     const clipboardItem = new ClipboardItem({
                         'image/png': blob
                     });
                     await navigator.clipboard.write([clipboardItem]);
-                    alert('Screenshot copied to clipboard!');
+
+                    // Show checkmark
+                    statusEmoji.innerHTML = ' ✅';
+                    setTimeout(() => {
+                        statusEmoji.innerHTML = '';
+                    }, 500);
                 } else {
-                    // Fall back to download
+                    // Fall back to download if clipboard API not available
                     const link = document.createElement('a');
                     link.download = 'map-screenshot.png';
                     link.href = URL.createObjectURL(blob);

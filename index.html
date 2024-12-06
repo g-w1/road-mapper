@@ -1,401 +1,450 @@
 <!DOCTYPE html>
 <html>
-
-<head>
+  <head>
     <title>Road Mapper</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+    />
     <div>
-        <h1 style="font-family: Arial, Helvetica, sans-serif; font">
-            Road Mapper
-        </h1>
+      <h1 style="font-family: Arial, Helvetica, sans-serif; font">
+        Road Mapper
+      </h1>
     </div>
     <style>
-        body {
-            margin: 0;
-            padding: 30px;
-        }
+      body {
+        margin: 0;
+        padding: 30px;
+      }
 
-        #map {
-            height: 85vh;
-            width: 100%;
-            margin-top: 20px;
-        }
+      #map {
+        height: 85vh;
+        width: 100%;
+        margin-top: 20px;
+      }
 
-        .controls-container {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
-        }
+      .controls-container {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
 
-        input {
-            padding: 8px;
-            width: 200px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
+      input {
+        padding: 8px;
+        width: 200px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
 
-        button {
-            padding: 8px 16px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
+      button {
+        padding: 8px 16px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
 
-        button:hover {
-            background-color: #45a049;
-        }
+      button:hover {
+        background-color: #45a049;
+      }
 
-        #resetBtn,
-        #toggleMarkerBtn,
-        #resetPointsBtn {
-            background-color: #f44336;
-        }
+      #resetBtn,
+      #toggleMarkerBtn,
+      #resetPointsBtn {
+        background-color: #f44336;
+      }
 
-        #resetBtn:hover,
-        #toggleMarkerBtn:hover,
-        #resetPointsBtn:hover {
-            background-color: #d32f2f;
-        }
+      #resetBtn:hover,
+      #toggleMarkerBtn:hover,
+      #resetPointsBtn:hover {
+        background-color: #d32f2f;
+      }
 
-        #toggleMarkerBtn.active {
-            background-color: #2196F3;
-        }
+      #toggleMarkerBtn.active {
+        background-color: #2196f3;
+      }
 
-        #toggleMarkerBtn.active:hover {
-            background-color: #1976D2;
-        }
+      #toggleMarkerBtn.active:hover {
+        background-color: #1976d2;
+      }
 
-        #highlightedRoad {
-            margin-top: 10px;
-            color: #666;
-        }
+      #highlightedRoad {
+        margin-top: 10px;
+        color: #666;
+      }
 
-        .radius-control {
-            display: none;
-            align-items: center;
-            margin-left: 10px;
-        }
+      .radius-control {
+        display: none;
+        align-items: center;
+        margin-left: 10px;
+      }
 
-        .radius-control.visible {
-            display: flex;
-        }
+      .radius-control.visible {
+        display: flex;
+      }
 
-        #screenshotBtn {
-            background-color: #9c27b0;
-        }
+      #screenshotBtn {
+        background-color: #9c27b0;
+      }
 
-        #screenshotBtn:hover {
-            background-color: #7b1fa2;
-        }
+      #screenshotBtn:hover {
+        background-color: #7b1fa2;
+      }
 
-        #overlayRoadBtn {
-            background-color: #FF9800;
-        }
+      #overlayRoadBtn {
+        background-color: #ff9800;
+      }
 
-        #overlayRoadBtn:hover:not(:disabled) {
-            background-color: #F57C00;
-        }
+      #overlayRoadBtn:hover:not(:disabled) {
+        background-color: #f57c00;
+      }
 
-
-        button:disabled {
-            cursor: not-allowed;
-        }
+      button:disabled {
+        cursor: not-allowed;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <div class="controls-container">
-        <input type="text" id="cityInput" placeholder="Enter city name">
-        <button onclick="searchCity()">Search City</button>
-        <input type="text" id="roadInput" placeholder="Enter road name">
-        <button onclick="searchRoad()">Find Road</button>
-        <button id="overlayRoadBtn" onclick="overlayRoad()" hidden>Overlay Road</button>
-        <button id="resetBtn" onclick="resetMap()" hidden>Clear Road</button>
-        <button id="toggleMarkerBtn" onclick="toggleMarkerMode()">Add Points (Off)</button>
-        <button id="resetPointsBtn" onclick="resetPoints()" style="display: none;">Clear Points</button>
-        <button id="screenshotBtn" onclick="takeScreenshot()">Screenshot<span class="status-emoji"></span></button>
-        <div class="radius-control">
-            <input type="range" id="radiusSlider" min="0" max="100" value="0" oninput="updateRadius(this.value)">
-            <span id="radiusValue">20m</span>
-        </div>
+      <input type="text" id="cityInput" placeholder="Enter city name" />
+      <button onclick="searchCity()">Search City</button>
+      <input type="text" id="roadInput" placeholder="Enter road name" />
+      <button onclick="searchRoad()">Find Road</button>
+      <button id="overlayRoadBtn" onclick="overlayRoad()" hidden>
+        Overlay Road
+      </button>
+      <button id="resetBtn" onclick="resetMap()" hidden>Clear Road</button>
+      <button id="toggleMarkerBtn" onclick="toggleMarkerMode()">
+        Add Points (Off)
+      </button>
+      <button id="resetPointsBtn" onclick="resetPoints()" style="display: none">
+        Clear Points
+      </button>
+      <button id="screenshotBtn" onclick="takeScreenshot()">
+        Screenshot<span class="status-emoji"></span>
+      </button>
+      <div class="radius-control">
+        <input
+          type="range"
+          id="radiusSlider"
+          min="0"
+          max="100"
+          value="0"
+          oninput="updateRadius(this.value)"
+        />
+        <span id="radiusValue">20m</span>
+      </div>
     </div>
     <div id="map"></div>
     <div id="highlightedRoad"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-simple-map-screenshoter"></script>
     <script>
-        let map, currentCity, cityBounds, screenshoter;
-        let highlightedLayers = [];
-        let isMarkerMode = false;
-        let isDragging = false;
-        let markers = [];
-        let currentRadius = 20;
+      let map, currentCity, cityBounds, screenshoter;
+      let highlightedLayers = [];
+      let isMarkerMode = false;
+      let isDragging = false;
+      let markers = [];
+      let currentRadius = 20;
 
-        // Add at the top of the script
-        const MIN_RADIUS = 20;
-        const MAX_RADIUS = 5000;
-        const LOG_MIN = Math.log(MIN_RADIUS);
-        const LOG_MAX = Math.log(MAX_RADIUS);
+      // Add at the top of the script
+      const MIN_RADIUS = 20;
+      const MAX_RADIUS = 5000;
+      const LOG_MIN = Math.log(MIN_RADIUS);
+      const LOG_MAX = Math.log(MAX_RADIUS);
 
-        // Replace the updateRadius function
-        function calculateRadius(sliderValue) {
-            // Convert slider value (0-100) to logarithmic scale between MIN_RADIUS and MAX_RADIUS
-            const logValue = LOG_MIN + (sliderValue / 100) * (LOG_MAX - LOG_MIN);
-            return Math.round(Math.exp(logValue));
+      // Replace the updateRadius function
+      function calculateRadius(sliderValue) {
+        // Convert slider value (0-100) to logarithmic scale between MIN_RADIUS and MAX_RADIUS
+        const logValue = LOG_MIN + (sliderValue / 100) * (LOG_MAX - LOG_MIN);
+        return Math.round(Math.exp(logValue));
+      }
+
+      function overlayRoad() {
+        searchRoadHelper(true);
+      }
+
+      function clearAnnotations() {
+        highlightedLayers.forEach((layer) => {
+          map.removeLayer(layer);
+        });
+        highlightedLayers = [];
+      }
+
+      function searchRoad() {
+        clearAnnotations();
+        searchRoadHelper(false);
+      }
+
+      function updateRadius(sliderValue) {
+        currentRadius = calculateRadius(sliderValue);
+        // Format display with km for values ≥ 1000
+        const display =
+          currentRadius >= 1000
+            ? (currentRadius / 1000).toFixed(1) + "km"
+            : currentRadius + "m";
+        document.getElementById("radiusValue").textContent = display;
+      }
+      function initMap() {
+        map = L.map("map", {
+          zoomDelta: 0.25,
+          zoomSnap: 0.25,
+          wheelDebounceTime: 40,
+        }).setView([0, 0], 13);
+
+        screenshoter = L.simpleMapScreenshoter({
+          position: "topleft",
+          screenName: "map-screenshot",
+          hideElementsWithSelectors: [".leaflet-control-container"],
+          mimeType: "image/png",
+        }).addTo(map);
+
+        L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
+          {
+            maxZoom: 19,
+            attribution: "© OpenStreetMap contributors",
+          }
+        ).addTo(map);
+
+        map.on("moveend", function () {
+          if (currentCity) {
+            saveViewState(currentCity.display_name);
+          }
+        });
+
+        map.on("dragstart", () => {
+          isDragging = true;
+        });
+        map.on("dragend", () => {
+          setTimeout(() => {
+            isDragging = false;
+          }, 50);
+        });
+
+        map.on("click", (e) => {
+          if (isMarkerMode && !isDragging) {
+            handleMapClick(e);
+          }
+        });
+
+        // Add enter key listeners for inputs
+        document
+          .getElementById("cityInput")
+          .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+              searchCity();
+            }
+          });
+
+        document
+          .getElementById("roadInput")
+          .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+              searchRoad();
+            }
+          });
+      }
+
+      function handleMapClick(e) {
+        const clickedLatLng = e.latlng;
+
+        // Find if clicked on existing marker, using the marker's own radius for detection
+        let clickedMarker = markers.find((marker) => {
+          const markerLatLng = marker.getLatLng();
+          const distance = clickedLatLng.distanceTo(markerLatLng);
+          return distance <= marker.getRadius();
+        });
+
+        if (clickedMarker) {
+          map.removeLayer(clickedMarker);
+          markers = markers.filter((m) => m !== clickedMarker);
+          updateResetPointsButton();
+        } else {
+          const circle = L.circle(clickedLatLng, {
+            color: "#2196F3",
+            fillColor: "#2196F3",
+            fillOpacity: 0.3,
+            radius: currentRadius,
+          }).addTo(map);
+
+          markers.push(circle);
+          updateResetPointsButton();
         }
+      }
 
-        function overlayRoad() {
-            searchRoadHelper(true);
+      function updateResetPointsButton() {
+        const resetPointsBtn = document.getElementById("resetPointsBtn");
+        resetPointsBtn.style.display = markers.length > 0 ? "block" : "none";
+      }
+
+      function resetPoints() {
+        markers.forEach((marker) => map.removeLayer(marker));
+        markers = [];
+        updateResetPointsButton();
+      }
+
+      function toggleMarkerMode() {
+        isMarkerMode = !isMarkerMode;
+        const btn = document.getElementById("toggleMarkerBtn");
+        const radiusControl = document.querySelector(".radius-control");
+
+        if (isMarkerMode) {
+          btn.textContent = "Add Points (On)";
+          btn.classList.add("active");
+          map.getContainer().style.cursor = "crosshair";
+          radiusControl.classList.add("visible");
+        } else {
+          btn.textContent = "Add Points (Off)";
+          btn.classList.remove("active");
+          map.getContainer().style.cursor = "";
+          radiusControl.classList.remove("visible");
         }
+      }
 
-        function clearAnnotations() {
-            highlightedLayers.forEach(layer => {
-                map.removeLayer(layer);
+      async function takeScreenshot() {
+        try {
+          const blob = await screenshoter.takeScreen("blob");
+          const statusEmoji = document.querySelector(".status-emoji");
+
+          if (navigator.clipboard && navigator.clipboard.write) {
+            const clipboardItem = new ClipboardItem({
+              "image/png": blob,
             });
-            highlightedLayers = [];
-        }
+            await navigator.clipboard.write([clipboardItem]);
 
-        function searchRoad() {
+            // Show checkmark
+            statusEmoji.innerHTML = " ✅";
+            setTimeout(() => {
+              statusEmoji.innerHTML = "";
+            }, 500);
+          } else {
+            // Fall back to download if clipboard API not available
+            const link = document.createElement("a");
+            link.download = "map-screenshot.png";
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            URL.revokeObjectURL(link.href);
+          }
+        } catch (error) {
+          console.error("Screenshot error:", error);
+          alert("Error taking screenshot");
+        }
+      }
+
+      function resetMap() {
+        clearAnnotations();
+        document.getElementById("highlightedRoad").textContent = "";
+        document.getElementById("roadInput").value = "";
+        overlayRoadBtn.hidden = true;
+        resetBtn.hidden = true;
+      }
+
+      function saveViewState(cityName) {
+        const viewState = {
+          center: map.getCenter(),
+          zoom: map.getZoom(),
+          bounds: map.getBounds(),
+        };
+        localStorage.setItem(`mapView_${cityName}`, JSON.stringify(viewState));
+      }
+
+      function loadViewState(cityName) {
+        const savedState = localStorage.getItem(`mapView_${cityName}`);
+        if (savedState) {
+          return JSON.parse(savedState);
+        }
+        return null;
+      }
+
+      function expandBoundingBox(bbox, factor = 0.5) {
+        const latDiff = (bbox[1][0] - bbox[0][0]) * factor;
+        const lonDiff = (bbox[1][1] - bbox[0][1]) * factor;
+        return [
+          [bbox[0][0] - latDiff, bbox[0][1] - lonDiff],
+          [bbox[1][0] + latDiff, bbox[1][1] + lonDiff],
+        ];
+      }
+
+      async function searchCity() {
+        const cityName = document.getElementById("cityInput").value;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+              cityName
+            )}&addressdetails=1&polygon_geojson=1`
+          );
+          const data = await response.json();
+
+          if (data.length > 0) {
+            currentCity = data[0];
+            if (currentCity.boundingbox) {
+              const south = Math.min(
+                parseFloat(currentCity.boundingbox[0]),
+                parseFloat(currentCity.boundingbox[1])
+              );
+              const north = Math.max(
+                parseFloat(currentCity.boundingbox[0]),
+                parseFloat(currentCity.boundingbox[1])
+              );
+              const west = Math.min(
+                parseFloat(currentCity.boundingbox[2]),
+                parseFloat(currentCity.boundingbox[3])
+              );
+              const east = Math.max(
+                parseFloat(currentCity.boundingbox[2]),
+                parseFloat(currentCity.boundingbox[3])
+              );
+
+              cityBounds = [
+                [south, west],
+                [north, east],
+              ];
+
+              const savedState = loadViewState(currentCity.display_name);
+              if (savedState) {
+                map.setView(
+                  [savedState.center.lat, savedState.center.lng],
+                  savedState.zoom
+                );
+              } else {
+                map.fitBounds(cityBounds);
+              }
+            }
             clearAnnotations();
-            searchRoadHelper(false);
+            document.getElementById("highlightedRoad").textContent = "";
+          } else {
+            alert("City not found");
+          }
+        } catch (error) {
+          alert("Error searching for city");
+        }
+      }
+
+      async function searchRoadHelper(updateText) {
+        if (!currentCity) {
+          alert("Please search for a city first");
+          return;
         }
 
-        function updateRadius(sliderValue) {
-            currentRadius = calculateRadius(sliderValue);
-            // Format display with km for values ≥ 1000
-            const display = currentRadius >= 1000 ?
-                (currentRadius / 1000).toFixed(1) + 'km' :
-                currentRadius + 'm';
-            document.getElementById('radiusValue').textContent = display;
-        }
-        function initMap() {
-            map = L.map('map', {
-                zoomDelta: 0.25,
-                zoomSnap: 0.25,
-                wheelDebounceTime: 40
-            }).setView([0, 0], 13);
+        const roadInput = document.getElementById("roadInput").value;
+        const expandedBounds = expandBoundingBox(cityBounds);
+        const south = Math.min(expandedBounds[0][0], expandedBounds[1][0]);
+        const north = Math.max(expandedBounds[0][0], expandedBounds[1][0]);
+        const west = Math.min(expandedBounds[0][1], expandedBounds[1][1]);
+        const east = Math.max(expandedBounds[0][1], expandedBounds[1][1]);
+        const bbox = `${south},${west},${north},${east}`;
 
-            screenshoter = L.simpleMapScreenshoter({
-                position: 'topleft',
-                screenName: 'map-screenshot',
-                hideElementsWithSelectors: ['.leaflet-control-container'],
-                mimeType: 'image/png'
-            }).addTo(map);
-
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-
-            map.on('moveend', function () {
-                if (currentCity) {
-                    saveViewState(currentCity.display_name);
-                }
-            });
-
-            map.on('dragstart', () => { isDragging = true; });
-            map.on('dragend', () => {
-                setTimeout(() => { isDragging = false; }, 50);
-            });
-
-            map.on('click', (e) => {
-                if (isMarkerMode && !isDragging) {
-                    handleMapClick(e);
-                }
-            });
-
-            // Add enter key listeners for inputs
-            document.getElementById('cityInput').addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    searchCity();
-                }
-            });
-
-            document.getElementById('roadInput').addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    searchRoad();
-                }
-            });
-        }
-
-        function handleMapClick(e) {
-            const clickedLatLng = e.latlng;
-
-            // Find if clicked on existing marker, using the marker's own radius for detection
-            let clickedMarker = markers.find(marker => {
-                const markerLatLng = marker.getLatLng();
-                const distance = clickedLatLng.distanceTo(markerLatLng);
-                return distance <= marker.getRadius();
-            });
-
-            if (clickedMarker) {
-                map.removeLayer(clickedMarker);
-                markers = markers.filter(m => m !== clickedMarker);
-                updateResetPointsButton();
-            } else {
-                const circle = L.circle(clickedLatLng, {
-                    color: '#2196F3',
-                    fillColor: '#2196F3',
-                    fillOpacity: 0.3,
-                    radius: currentRadius
-                }).addTo(map);
-
-                markers.push(circle);
-                updateResetPointsButton();
-            }
-        }
-
-        function updateResetPointsButton() {
-            const resetPointsBtn = document.getElementById('resetPointsBtn');
-            resetPointsBtn.style.display = markers.length > 0 ? 'block' : 'none';
-        }
-
-        function resetPoints() {
-            markers.forEach(marker => map.removeLayer(marker));
-            markers = [];
-            updateResetPointsButton();
-        }
-
-        function toggleMarkerMode() {
-            isMarkerMode = !isMarkerMode;
-            const btn = document.getElementById('toggleMarkerBtn');
-            const radiusControl = document.querySelector('.radius-control');
-
-            if (isMarkerMode) {
-                btn.textContent = 'Add Points (On)';
-                btn.classList.add('active');
-                map.getContainer().style.cursor = 'crosshair';
-                radiusControl.classList.add('visible');
-            } else {
-                btn.textContent = 'Add Points (Off)';
-                btn.classList.remove('active');
-                map.getContainer().style.cursor = '';
-                radiusControl.classList.remove('visible');
-            }
-        }
-
-
-        async function takeScreenshot() {
-            try {
-                const blob = await screenshoter.takeScreen('blob');
-                const statusEmoji = document.querySelector('.status-emoji');
-
-                if (navigator.clipboard && navigator.clipboard.write) {
-                    const clipboardItem = new ClipboardItem({
-                        'image/png': blob
-                    });
-                    await navigator.clipboard.write([clipboardItem]);
-
-                    // Show checkmark
-                    statusEmoji.innerHTML = ' ✅';
-                    setTimeout(() => {
-                        statusEmoji.innerHTML = '';
-                    }, 500);
-                } else {
-                    // Fall back to download if clipboard API not available
-                    const link = document.createElement('a');
-                    link.download = 'map-screenshot.png';
-                    link.href = URL.createObjectURL(blob);
-                    link.click();
-                    URL.revokeObjectURL(link.href);
-                }
-            } catch (error) {
-                console.error('Screenshot error:', error);
-                alert('Error taking screenshot');
-            }
-        }
-
-        function resetMap() {
-            clearAnnotations();
-            document.getElementById('highlightedRoad').textContent = '';
-            document.getElementById('roadInput').value = '';
-            overlayRoadBtn.hidden = true;
-            resetBtn.hidden = true;
-        }
-
-        function saveViewState(cityName) {
-            const viewState = {
-                center: map.getCenter(),
-                zoom: map.getZoom(),
-                bounds: map.getBounds()
-            };
-            localStorage.setItem(`mapView_${cityName}`, JSON.stringify(viewState));
-        }
-
-        function loadViewState(cityName) {
-            const savedState = localStorage.getItem(`mapView_${cityName}`);
-            if (savedState) {
-                return JSON.parse(savedState);
-            }
-            return null;
-        }
-
-        function expandBoundingBox(bbox, factor = 0.5) {
-            const latDiff = (bbox[1][0] - bbox[0][0]) * factor;
-            const lonDiff = (bbox[1][1] - bbox[0][1]) * factor;
-            return [
-                [bbox[0][0] - latDiff, bbox[0][1] - lonDiff],
-                [bbox[1][0] + latDiff, bbox[1][1] + lonDiff]
-            ];
-        }
-
-        async function searchCity() {
-            const cityName = document.getElementById('cityInput').value;
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&addressdetails=1&polygon_geojson=1`);
-                const data = await response.json();
-
-                if (data.length > 0) {
-                    currentCity = data[0];
-                    if (currentCity.boundingbox) {
-                        const south = Math.min(parseFloat(currentCity.boundingbox[0]), parseFloat(currentCity.boundingbox[1]));
-                        const north = Math.max(parseFloat(currentCity.boundingbox[0]), parseFloat(currentCity.boundingbox[1]));
-                        const west = Math.min(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
-                        const east = Math.max(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
-
-                        cityBounds = [[south, west], [north, east]];
-
-                        const savedState = loadViewState(currentCity.display_name);
-                        if (savedState) {
-                            map.setView([savedState.center.lat, savedState.center.lng], savedState.zoom);
-                        } else {
-                            map.fitBounds(cityBounds);
-                        }
-                    }
-                    clearAnnotations();
-                    document.getElementById('highlightedRoad').textContent = '';
-                } else {
-                    alert('City not found');
-                }
-            } catch (error) {
-                alert('Error searching for city');
-            }
-        }
-
-        async function searchRoadHelper(updateText) {
-            if (!currentCity) {
-                alert('Please search for a city first');
-                return;
-            }
-
-            const roadInput = document.getElementById('roadInput').value;
-            const expandedBounds = expandBoundingBox(cityBounds);
-            const south = Math.min(expandedBounds[0][0], expandedBounds[1][0]);
-            const north = Math.max(expandedBounds[0][0], expandedBounds[1][0]);
-            const west = Math.min(expandedBounds[0][1], expandedBounds[1][1]);
-            const east = Math.max(expandedBounds[0][1], expandedBounds[1][1]);
-            const bbox = `${south},${west},${north},${east}`;
-
-            try {
-                let query;
-                if (roadInput.match(/^i[-\s]?\d+$/i)) {
-                    const num = roadInput.match(/\d+/)[0];
-                    query = `
+        try {
+          let query;
+          if (roadInput.match(/^i[-\s]?\d+$/i)) {
+            const num = roadInput.match(/\d+/)[0];
+            query = `
                 [out:json][timeout:25];
                 (
                     way["highway"="motorway"](${bbox});
@@ -404,9 +453,9 @@
                 (._;>;);
                 out body geom;
             `;
-                } else if (roadInput.match(/^us[-\s]?\d+$/i)) {
-                    const num = roadInput.match(/\d+/)[0];
-                    query = `
+          } else if (roadInput.match(/^us[-\s]?\d+$/i)) {
+            const num = roadInput.match(/\d+/)[0];
+            query = `
                 [out:json][timeout:25];
                 (
                     way["highway"]["ref"~"^US[ -]?${num}$",i](${bbox});
@@ -415,8 +464,8 @@
                 (._;>;);
                 out body geom;
             `;
-                } else {
-                    query = `
+          } else {
+            query = `
                 [out:json][timeout:25];
                 (
                     way["highway"]["name"~"${roadInput}",i](${bbox});
@@ -424,64 +473,82 @@
                 (._;>;);
                 out body geom;
             `;
-                }
+          }
 
-                const response = await fetch('https://overpass-api.de/api/interpreter', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: 'data=' + encodeURIComponent(query)
-                });
-
-                const data = await response.json();
-
-                if (data.elements.length > 0) {
-                    const roadSegments = [];
-                    data.elements.forEach(element => {
-                        if (element.type === 'way' && element.geometry) {
-                            if (roadInput.match(/^i[-\s]?\d+$/i)) {
-                                const num = roadInput.match(/\d+/)[0];
-                                if (element.tags &&
-                                    (element.tags.ref === `I ${num}` ||
-                                        element.tags.ref === `I-${num}` ||
-                                        element.tags.ref === num)) {
-                                    const coordinates = element.geometry.map(point => [point.lat, point.lon]);
-                                    roadSegments.push(coordinates);
-                                }
-                            } else {
-                                const coordinates = element.geometry.map(point => [point.lat, point.lon]);
-                                roadSegments.push(coordinates);
-                            }
-                        }
-                    });
-
-                    if (roadSegments.length > 0) {
-                        highlightedLayers.push(L.polyline(roadSegments, {
-                            color: '#FF0000',
-                            weight: 6,
-                            opacity: 0.8
-                        }).addTo(map));
-
-                        if (updateText) {
-                            document.getElementById('highlightedRoad').textContent = `Found: ${roadInput}`;
-                        }
-                        overlayRoadBtn.hidden = false;
-                        resetBtn.hidden = false;
-                    } else if (updateText) {
-                        document.getElementById('highlightedRoad').textContent = `Road not found: ${roadInput}`;
-                    }
-                } else if (updateText) {
-                    document.getElementById('highlightedRoad').textContent = `Road not found: ${roadInput}`;
-                }
-            } catch (error) {
-                alert('Error searching for road');
-                console.error(error);
+          const response = await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: "data=" + encodeURIComponent(query),
             }
+          );
+
+          const data = await response.json();
+
+          if (data.elements.length > 0) {
+            const roadSegments = [];
+            data.elements.forEach((element) => {
+              if (element.type === "way" && element.geometry) {
+                if (roadInput.match(/^i[-\s]?\d+$/i)) {
+                  const num = roadInput.match(/\d+/)[0];
+                  if (
+                    element.tags &&
+                    (element.tags.ref === `I ${num}` ||
+                      element.tags.ref === `I-${num}` ||
+                      element.tags.ref === num)
+                  ) {
+                    const coordinates = element.geometry.map((point) => [
+                      point.lat,
+                      point.lon,
+                    ]);
+                    roadSegments.push(coordinates);
+                  }
+                } else {
+                  const coordinates = element.geometry.map((point) => [
+                    point.lat,
+                    point.lon,
+                  ]);
+                  roadSegments.push(coordinates);
+                }
+              }
+            });
+
+            if (roadSegments.length > 0) {
+              highlightedLayers.push(
+                L.polyline(roadSegments, {
+                  color: "#FF0000",
+                  weight: 6,
+                  opacity: 0.8,
+                }).addTo(map)
+              );
+
+              if (updateText) {
+                document.getElementById(
+                  "highlightedRoad"
+                ).textContent = `Found: ${roadInput}`;
+              }
+              overlayRoadBtn.hidden = false;
+              resetBtn.hidden = false;
+            } else if (updateText) {
+              document.getElementById(
+                "highlightedRoad"
+              ).textContent = `Road not found: ${roadInput}`;
+            }
+          } else if (updateText) {
+            document.getElementById(
+              "highlightedRoad"
+            ).textContent = `Road not found: ${roadInput}`;
+          }
+        } catch (error) {
+          alert("Error searching for road");
+          console.error(error);
         }
+      }
 
-        initMap();
+      initMap();
     </script>
-</body>
-
+  </body>
 </html>

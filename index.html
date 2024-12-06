@@ -99,13 +99,30 @@
         background-color: #ff9800;
       }
 
-      #overlayRoadBtn:hover:not(:disabled) {
-        background-color: #f57c00;
-      }
+        #overlayRoadBtn:hover:not(:disabled) {
+            background-color: #F57C00;
+        }
 
-      button:disabled {
-        cursor: not-allowed;
-      }
+        .state-controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        #saveStateBtn,
+        #loadStateBtn {
+            background-color: #2196F3;
+        }
+
+        #saveStateBtn:hover,
+        #loadStateBtn:hover {
+            background-color: #1976D2;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
     </style>
   </head>
 
@@ -142,6 +159,10 @@
     </div>
     <div id="map"></div>
     <div id="highlightedRoad"></div>
+    <div class="state-controls">
+        <button id="saveStateBtn" onclick="saveCustomState()" disabled>Save Zoom/Pan State</button>
+        <button id="loadStateBtn" onclick="loadCustomState()" disabled>Load Zoom/Pan State</button>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-simple-map-screenshoter"></script>
     <script>
@@ -371,60 +392,101 @@
         ];
       }
 
-      async function searchCity() {
-        const cityName = document.getElementById("cityInput").value;
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              cityName
-            )}&addressdetails=1&polygon_geojson=1`
-          );
-          const data = await response.json();
-
-          if (data.length > 0) {
-            currentCity = data[0];
-            if (currentCity.boundingbox) {
-              const south = Math.min(
-                parseFloat(currentCity.boundingbox[0]),
-                parseFloat(currentCity.boundingbox[1])
-              );
-              const north = Math.max(
-                parseFloat(currentCity.boundingbox[0]),
-                parseFloat(currentCity.boundingbox[1])
-              );
-              const west = Math.min(
-                parseFloat(currentCity.boundingbox[2]),
-                parseFloat(currentCity.boundingbox[3])
-              );
-              const east = Math.max(
-                parseFloat(currentCity.boundingbox[2]),
-                parseFloat(currentCity.boundingbox[3])
-              );
-
-              cityBounds = [
-                [south, west],
-                [north, east],
-              ];
-
-              const savedState = loadViewState(currentCity.display_name);
-              if (savedState) {
-                map.setView(
-                  [savedState.center.lat, savedState.center.lng],
-                  savedState.zoom
-                );
-              } else {
-                map.fitBounds(cityBounds);
-              }
+        function saveCustomState() {
+            if (!currentCity) {
+                alert('Please search for a city first');
+                return;
             }
-            clearAnnotations();
-            document.getElementById("highlightedRoad").textContent = "";
-          } else {
-            alert("City not found");
-          }
-        } catch (error) {
-          alert("Error searching for city");
+
+            const stateName = prompt('Enter a name for this view state:');
+            if (!stateName) return;
+
+            const viewState = {
+                center: map.getCenter(),
+                zoom: map.getZoom(),
+                bounds: map.getBounds(),
+                cityName: currentCity.display_name
+            };
+
+            // Strip the text and create a clean key
+            const cleanStateName = stateName.trim().replace(/[^a-zA-Z0-9]/g, '_');
+            const stateKey = `customMapView_${cleanStateName}`;
+
+            localStorage.setItem(stateKey, JSON.stringify(viewState));
+            alert(`View state "${stateName}" saved successfully`);
         }
-      }
+
+        function loadCustomState() {
+            if (!currentCity) {
+                alert('Please search for a city first');
+                return;
+            }
+
+            const stateName = prompt('Enter the name of the view state to load:');
+            if (!stateName) return;
+
+            // Strip the text and create a clean key
+            const cleanStateName = stateName.trim().replace(/[^a-zA-Z0-9]/g, '_');
+            const stateKey = `customMapView_${cleanStateName}`;
+
+            const savedState = localStorage.getItem(stateKey);
+            if (!savedState) {
+                alert(`No view state found with name "${stateName}"`);
+                return;
+            }
+
+            const viewState = JSON.parse(savedState);
+
+            // Check if the state belongs to the current city
+            if (viewState.cityName !== currentCity.display_name) {
+                alert('This view state belongs to a different city');
+                return;
+            }
+
+            map.setView([viewState.center.lat, viewState.center.lng], viewState.zoom);
+        }
+
+        // Modify the searchCity function to enable/disable the load state button
+        async function searchCity() {
+            const cityName = document.getElementById('cityInput').value;
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&addressdetails=1&polygon_geojson=1`);
+                const data = await response.json();
+
+                if (data.length > 0) {
+                    currentCity = data[0];
+                    // Enable the load state button when a city is selected
+                    document.getElementById('loadStateBtn').disabled = false;
+                    document.getElementById('saveStateBtn').disabled = false;
+
+                    if (currentCity.boundingbox) {
+                        const south = Math.min(parseFloat(currentCity.boundingbox[0]), parseFloat(currentCity.boundingbox[1]));
+                        const north = Math.max(parseFloat(currentCity.boundingbox[0]), parseFloat(currentCity.boundingbox[1]));
+                        const west = Math.min(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
+                        const east = Math.max(parseFloat(currentCity.boundingbox[2]), parseFloat(currentCity.boundingbox[3]));
+
+                        cityBounds = [[south, west], [north, east]];
+
+                        const savedState = loadViewState(currentCity.display_name);
+                        if (savedState) {
+                            map.setView([savedState.center.lat, savedState.center.lng], savedState.zoom);
+                        } else {
+                            map.fitBounds(cityBounds);
+                        }
+                    }
+                    clearAnnotations();
+                    document.getElementById('highlightedRoad').textContent = '';
+                } else {
+                    alert('City not found');
+                    document.getElementById('saveStateBtn').disabled = true;
+                    document.getElementById('loadStateBtn').disabled = true;
+                }
+            } catch (error) {
+                alert('Error searching for city');
+                document.getElementById('saveStateBtn').disabled = true;
+                document.getElementById('loadStateBtn').disabled = true;
+            }
+        }
 
       async function searchRoadHelper(updateText) {
         if (!currentCity) {

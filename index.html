@@ -132,7 +132,8 @@
         <button id="screenshotBtn" onclick="takeScreenshot()">Screenshot<span class="status-emoji"></span></button>
         <div class="radius-control">
             <input type="range" id="radiusSlider" min="0" max="100" value="0" oninput="updateRadius(this.value)">
-            <span id="radiusValue">20m</span>
+            <input type="number" id="radiusInput" min="20" max="5000" value="20" placeholder="Radius" oninput="updateRadiusFromInput(this.value)" style="width: 80px; margin-left: 5px;">
+            <span style="margin-left: 3px;">meters</span>
         </div>
     </div>
     <div id="map"></div>
@@ -180,13 +181,26 @@
             searchRoadHelper(false);
         }
 
+        function calculateSliderValue(radius) {
+            // Convert radius back to slider value (inverse of calculateRadius)
+            const logValue = Math.log(radius);
+            return Math.round(((logValue - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 100);
+        }
+
         function updateRadius(sliderValue) {
             currentRadius = calculateRadius(sliderValue);
-            // Format display with km for values ≥ 1000
-            const display = currentRadius >= 1000 ?
-                (currentRadius / 1000).toFixed(1) + 'km' :
-                currentRadius + 'm';
-            document.getElementById('radiusValue').textContent = display;
+            // Update the input field
+            document.getElementById('radiusInput').value = currentRadius;
+        }
+
+        function updateRadiusFromInput(radius) {
+            const radiusValue = parseInt(radius);
+            if (radiusValue >= MIN_RADIUS && radiusValue <= MAX_RADIUS) {
+                currentRadius = radiusValue;
+                // Update the slider
+                const sliderValue = calculateSliderValue(radiusValue);
+                document.getElementById('radiusSlider').value = sliderValue;
+            }
         }
         function initMap() {
             map = L.map('map', {

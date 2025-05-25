@@ -132,7 +132,8 @@
         <button id="screenshotBtn" onclick="takeScreenshot()">Screenshot<span class="status-emoji"></span></button>
         <div class="radius-control">
             <input type="range" id="radiusSlider" min="0" max="100" value="0" oninput="updateRadius(this.value)">
-            <span id="radiusValue">20m</span>
+            <input type="number" id="radiusInput" min="20" max="5000" value="20" placeholder="Radius" oninput="updateRadiusFromInput(this.value)" style="width: 80px; margin-left: 5px;">
+            <span style="margin-left: 3px;">meters</span>
         </div>
     </div>
     <div id="map"></div>
@@ -180,13 +181,26 @@
             searchRoadHelper(false);
         }
 
+        function calculateSliderValue(radius) {
+            // Convert radius back to slider value (inverse of calculateRadius)
+            const logValue = Math.log(radius);
+            return Math.round(((logValue - LOG_MIN) / (LOG_MAX - LOG_MIN)) * 100);
+        }
+
         function updateRadius(sliderValue) {
             currentRadius = calculateRadius(sliderValue);
-            // Format display with km for values ≥ 1000
-            const display = currentRadius >= 1000 ?
-                (currentRadius / 1000).toFixed(1) + 'km' :
-                currentRadius + 'm';
-            document.getElementById('radiusValue').textContent = display;
+            // Update the input field
+            document.getElementById('radiusInput').value = currentRadius;
+        }
+
+        function updateRadiusFromInput(radius) {
+            const radiusValue = parseInt(radius);
+            if (radiusValue >= MIN_RADIUS && radiusValue <= MAX_RADIUS) {
+                currentRadius = radiusValue;
+                // Update the slider
+                const sliderValue = calculateSliderValue(radiusValue);
+                document.getElementById('radiusSlider').value = sliderValue;
+            }
         }
         function initMap() {
             map = L.map('map', {
@@ -294,15 +308,79 @@
             }
         }
 
+        async function adjustHighlights(blob, amount) {
+            // Create an image element and load the blob
+            const img = new Image();
+            const imageUrl = URL.createObjectURL(blob);
+
+            // Wait for image to load
+            await new Promise((resolve) => {
+                img.onload = resolve;
+                img.src = imageUrl;
+            });
+
+            // Create canvas and get context
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+
+            // Draw image to canvas
+            ctx.drawImage(img, 0, 0);
+
+            // Get image data
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // Convert amount to a value between -1 and 1
+            const normalizedAmount = amount / 100;
+
+            // Adjust highlights
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                // Calculate luminance (perceived brightness)
+                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+                // Only adjust pixels that are in the highlight range (luminance > 0.5)
+                if (luminance > 0.5) {
+                    // Calculate adjustment factor based on how bright the pixel is
+                    const adjustmentFactor = (luminance - 0.5) * 2 * normalizedAmount;
+
+                    // For positive amount (reducing highlights), subtract from the color values
+                    // For negative amount (increasing highlights), add to the color values
+                    data[i] = Math.max(0, Math.min(255, r - (r * adjustmentFactor)));
+                    data[i + 1] = Math.max(0, Math.min(255, g - (g * adjustmentFactor)));
+                    data[i + 2] = Math.max(0, Math.min(255, b - (b * adjustmentFactor)));
+                }
+            }
+
+            // Put the modified image data back to canvas
+            ctx.putImageData(imageData, 0, 0);
+
+            // Convert canvas to blob
+            const resultBlob = await new Promise(resolve => {
+                canvas.toBlob(resolve, 'image/png', 1.0);
+            });
+
+            // Clean up
+            URL.revokeObjectURL(imageUrl);
+
+            return resultBlob;
+        }
+
 
         async function takeScreenshot() {
             try {
                 const blob = await screenshoter.takeScreen('blob');
+                const blobAdjusted = await adjustHighlights(blob, 3);
                 const statusEmoji = document.querySelector('.status-emoji');
 
                 if (navigator.clipboard && navigator.clipboard.write) {
                     const clipboardItem = new ClipboardItem({
-                        'image/png': blob
+                        'image/png': blobAdjusted
                     });
                     await navigator.clipboard.write([clipboardItem]);
 

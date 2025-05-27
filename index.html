@@ -411,7 +411,7 @@
               const lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
               // Reduce highlights: if pixel is bright, reduce it more
-              const highlightReduction = lum > 200 ? 0.7 : 1.0; // 30% reduction for highlights
+              const highlightReduction = lum > 200 ? 0.67 : 1.0; // 30% reduction for highlights
 
               // Apply highlight reduction
               r *= highlightReduction;

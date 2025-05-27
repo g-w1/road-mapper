@@ -114,6 +114,18 @@
         background-color: #1976d2;
       }
 
+      #highContrastBtn {
+        background-color: #000000;
+      }
+
+      #highContrastBtn:hover {
+        background-color: #333333;
+      }
+
+      #highContrastBtn.active {
+        background-color: #666666;
+      }
+
       button:disabled {
         cursor: not-allowed;
         opacity: 0.6;
@@ -171,6 +183,7 @@
       <button id="loadStateBtn" onclick="loadCustomState()" disabled>
         Load Zoom/Pan State
       </button>
+      <button id="highContrastBtn" onclick="toggleHighContrast()" class="active">ON -- Toggle High-Contrast Screenshots (much better for roads, but can mess up points)</button>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-simple-map-screenshoter"></script>
@@ -181,6 +194,7 @@
       let isDragging = false;
       let markers = [];
       let currentRadius = 20;
+      let isHighContrast = true;
 
       // Add at the top of the script
       const MIN_RADIUS = 20;
@@ -349,6 +363,19 @@
         }
       }
 
+      function toggleHighContrast() {
+        isHighContrast = !isHighContrast;
+        const btn = document.getElementById("highContrastBtn");
+        
+        if (isHighContrast) {
+          btn.classList.add("active");
+          btn.textContent = "ON -- Toggle High-Contrast Screenshots (much better for roads, but can mess up points)";
+        } else {
+          btn.classList.remove("active");
+          btn.textContent = "OFF -- Toggle High-Contrast Screenshots (much better for roads, but can mess up points)";
+        }
+      }
+
       async function processScreenshot(blob) {
         return new Promise((resolve) => {
           const img = new Image();
@@ -391,8 +418,8 @@
               g *= highlightReduction;
               b *= highlightReduction;
 
-              // Increase contrast (factor of 2)
-              const contrastFactor = 2.5;
+              // Increase contrast (factor of 2.8)
+              const contrastFactor = 2.8;
               r = ((r / 255 - 0.5) * contrastFactor + 0.5) * 255;
               g = ((g / 255 - 0.5) * contrastFactor + 0.5) * 255;
               b = ((b / 255 - 0.5) * contrastFactor + 0.5) * 255;
@@ -419,13 +446,13 @@
         try {
           const blob = await screenshoter.takeScreen("blob");
 
-          // Process the screenshot to reduce highlights
-          const processedBlob = await processScreenshot(blob);
+          // Process the screenshot to reduce highlights only if high contrast is enabled
+          const finalBlob = isHighContrast ? await processScreenshot(blob) : blob;
           const statusEmoji = document.querySelector(".status-emoji");
 
           if (navigator.clipboard && navigator.clipboard.write) {
             const clipboardItem = new ClipboardItem({
-              "image/png": processedBlob,
+              "image/png": finalBlob,
             });
             await navigator.clipboard.write([clipboardItem]);
 
@@ -438,7 +465,7 @@
             // Fall back to download if clipboard API not available
             const link = document.createElement("a");
             link.download = "map-screenshot.png";
-            link.href = URL.createObjectURL(processedBlob);
+            link.href = URL.createObjectURL(finalBlob);
             link.click();
             URL.revokeObjectURL(link.href);
           }

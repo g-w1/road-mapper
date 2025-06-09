@@ -49,13 +49,15 @@
 
       #resetBtn,
       #toggleMarkerBtn,
-      #resetPointsBtn {
+      #resetPointsBtn,
+      #removeBtn {
         background-color: #f44336;
       }
 
       #resetBtn:hover,
       #toggleMarkerBtn:hover,
-      #resetPointsBtn:hover {
+      #resetPointsBtn:hover,
+      #removeBtn:hover {
         background-color: #d32f2f;
       }
 
@@ -65,6 +67,14 @@
 
       #toggleMarkerBtn.active:hover {
         background-color: #1976d2;
+      }
+
+      #removeBtn.active {
+        background-color: #9C27B0;
+      }
+
+      #removeBtn.active:hover {
+        background-color: #7B1FA2;
       }
 
       #highlightedRoad {
@@ -143,6 +153,7 @@
         Overlay Road
       </button>
       <button id="resetBtn" onclick="resetMap()" hidden>Clear Road</button>
+      <button id="removeBtn" onclick="toggleRemoveMode()" hidden>Remove Segments</button>
       <button id="toggleMarkerBtn" onclick="toggleMarkerMode()">
         Add Points (Off)
       </button>
@@ -191,10 +202,12 @@
       let map, currentCity, cityBounds, screenshoter;
       let highlightedLayers = [];
       let isMarkerMode = false;
+      let isRemoveMode = false;
       let isDragging = false;
       let markers = [];
       let currentRadius = 20;
       let isHighContrast = true;
+      let roadSegmentGroups = [];
 
       // Add at the top of the script
       const MIN_RADIUS = 20;
@@ -218,6 +231,7 @@
           map.removeLayer(layer);
         });
         highlightedLayers = [];
+        roadSegmentGroups = [];
       }
 
       function searchRoad() {
@@ -286,6 +300,8 @@
         map.on("click", (e) => {
           if (isMarkerMode && !isDragging) {
             handleMapClick(e);
+          } else if (isRemoveMode && !isDragging) {
+            handleRemoveClick(e);
           }
         });
 
@@ -347,6 +363,9 @@
 
       function toggleMarkerMode() {
         isMarkerMode = !isMarkerMode;
+        if (isMarkerMode && isRemoveMode) {
+          toggleRemoveMode();
+        }
         const btn = document.getElementById("toggleMarkerBtn");
         const radiusControl = document.querySelector(".radius-control");
 
@@ -361,6 +380,140 @@
           map.getContainer().style.cursor = "";
           radiusControl.classList.remove("visible");
         }
+      }
+
+      function toggleRemoveMode() {
+        isRemoveMode = !isRemoveMode;
+        if (isRemoveMode && isMarkerMode) {
+          toggleMarkerMode();
+        }
+        const btn = document.getElementById('removeBtn');
+        
+        if (isRemoveMode) {
+          btn.textContent = 'Remove Segments (On)';
+          btn.classList.add('active');
+          map.getContainer().style.cursor = 'pointer';
+        } else {
+          btn.textContent = 'Remove Segments';
+          btn.classList.remove('active');
+          map.getContainer().style.cursor = '';
+        }
+      }
+
+      function handleRemoveClick(e) {
+        const clickPoint = e.latlng;
+        let closestLayer = null;
+        let closestDistance = Infinity;
+        let closestIndex = -1;
+
+        // Find the closest layer to the click
+        highlightedLayers.forEach((layer, index) => {
+          const latlngs = layer.getLatLngs();
+          
+          // Check distance to each segment of the polyline
+          for (let i = 0; i < latlngs.length - 1; i++) {
+            const distance = distanceToLineSegment(clickPoint, latlngs[i], latlngs[i + 1]);
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestLayer = layer;
+              closestIndex = index;
+            }
+          }
+        });
+
+        // If clicked near a layer (within 10 meters at current zoom)
+        const threshold = 10 / Math.pow(2, map.getZoom() - 16);
+        if (closestLayer && closestDistance < threshold) {
+          // Find all connected segments to remove as a group
+          const connectedLayers = findConnectedSegments(closestLayer);
+          
+          connectedLayers.forEach(layer => {
+            map.removeLayer(layer);
+            const idx = highlightedLayers.indexOf(layer);
+            if (idx > -1) {
+              highlightedLayers.splice(idx, 1);
+            }
+          });
+
+          // Update UI if no segments remain
+          if (highlightedLayers.length === 0) {
+            resetMap();
+          }
+        }
+      }
+
+      function distanceToLineSegment(point, start, end) {
+        const A = point.lat - start.lat;
+        const B = point.lng - start.lng;
+        const C = end.lat - start.lat;
+        const D = end.lng - start.lng;
+
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+
+        if (lenSq !== 0) {
+          param = dot / lenSq;
+        }
+
+        let xx, yy;
+
+        if (param < 0) {
+          xx = start.lat;
+          yy = start.lng;
+        } else if (param > 1) {
+          xx = end.lat;
+          yy = end.lng;
+        } else {
+          xx = start.lat + param * C;
+          yy = start.lng + param * D;
+        }
+
+        const dx = point.lat - xx;
+        const dy = point.lng - yy;
+
+        return Math.sqrt(dx * dx + dy * dy) * 111000; // Rough conversion to meters
+      }
+
+      function findConnectedSegments(targetLayer) {
+        const connected = [targetLayer];
+        const targetPoints = targetLayer.getLatLngs();
+        const targetStart = targetPoints[0];
+        const targetEnd = targetPoints[targetPoints.length - 1];
+        
+        let foundNew = true;
+        while (foundNew) {
+          foundNew = false;
+          
+          for (let layer of highlightedLayers) {
+            if (connected.includes(layer)) continue;
+            
+            const points = layer.getLatLngs();
+            const start = points[0];
+            const end = points[points.length - 1];
+            
+            // Check if this segment connects to any segment in our connected group
+            for (let connectedLayer of connected) {
+              const connectedPoints = connectedLayer.getLatLngs();
+              const connectedStart = connectedPoints[0];
+              const connectedEnd = connectedPoints[connectedPoints.length - 1];
+              
+              if (isNearby(start, connectedStart) || isNearby(start, connectedEnd) ||
+                  isNearby(end, connectedStart) || isNearby(end, connectedEnd)) {
+                connected.push(layer);
+                foundNew = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        return connected;
+      }
+
+      function isNearby(point1, point2, threshold = 0.00001) {
+        return Math.abs(point1.lat - point2.lat) < threshold && 
+               Math.abs(point1.lng - point2.lng) < threshold;
       }
 
       function toggleHighContrast() {
@@ -481,6 +634,10 @@
         document.getElementById("roadInput").value = "";
         overlayRoadBtn.hidden = true;
         resetBtn.hidden = true;
+        removeBtn.hidden = true;
+        if (isRemoveMode) {
+          toggleRemoveMode();
+        }
       }
 
       function saveViewState(cityName) {
@@ -721,13 +878,15 @@
             });
 
             if (roadSegments.length > 0) {
-              highlightedLayers.push(
-                L.polyline(roadSegments, {
-                  color: "#FF0000",
+              // Create individual polylines for each segment
+              roadSegments.forEach(segment => {
+                const polyline = L.polyline(segment, {
+                  color: '#FF0000',
                   weight: 6,
-                  opacity: 0.8,
-                }).addTo(map)
-              );
+                  opacity: 0.8
+                }).addTo(map);
+                highlightedLayers.push(polyline);
+              });
 
               if (updateText) {
                 document.getElementById(
@@ -736,6 +895,7 @@
               }
               overlayRoadBtn.hidden = false;
               resetBtn.hidden = false;
+              removeBtn.hidden = false;
             } else if (updateText) {
               document.getElementById(
                 "highlightedRoad"
